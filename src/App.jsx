@@ -45,8 +45,8 @@ function Marco({ children }) {
 function MarcoEscena({ children, className = '', reserva = 250 }) {
   return (
     <div
-      className={`relative mx-auto w-full overflow-hidden rounded-3xl border-4 border-madera-oscura bg-sky-900 shadow-2xl ${className}`}
-      style={{ aspectRatio: '1000 / 560', maxWidth: `max(320px, calc((100dvh - ${reserva}px) * 1.786))` }}
+      className={`marco-escena relative mx-auto w-full overflow-hidden rounded-3xl border-4 border-madera-oscura bg-sky-900 shadow-[0_20px_50px_rgba(0,0,0,.45)] ${className}`}
+      style={{ aspectRatio: '1000 / 560', '--reserva': `${reserva}px` }}
     >
       {children}
     </div>
@@ -69,11 +69,17 @@ function Hud({ indice, respuestas, puntaje, golpe }) {
         </ol>
         <div
           key={golpe}
-          className={`rounded-full border-2 border-amber-300/70 bg-black/30 px-3 py-1 font-titulo text-sm font-semibold md:text-base ${golpe ? 'temblor' : ''}`}
+          className={`relative overflow-hidden rounded-full border-2 border-amber-300/70 bg-black/30 px-3 py-1 font-titulo text-sm font-semibold md:text-base ${golpe ? 'temblor' : ''}`}
           aria-live="polite"
+          aria-label={`Puntaje: ${puntaje} de ${PUNTAJE_TOTAL}`}
         >
-          <span className="text-amber-200">{puntaje}</span>
-          <span className="text-white/60"> / {PUNTAJE_TOTAL} pts</span>
+          <span
+            aria-hidden
+            className="absolute inset-y-0 left-0 bg-amber-300/20 transition-[width] duration-700"
+            style={{ width: `${(puntaje / PUNTAJE_TOTAL) * 100}%` }}
+          />
+          <span className="relative text-amber-200">{puntaje}</span>
+          <span className="relative text-white/60"> / {PUNTAJE_TOTAL} pts</span>
         </div>
       </div>
     </header>
@@ -129,11 +135,33 @@ function PantallaInicio({ onEmpezar }) {
 
 /* ------------------------------------------------------------------ */
 
+function Confeti() {
+  const colores = ['#facc15', '#f472b6', '#4ade80', '#60a5fa', '#fb923c', '#a78bfa']
+  return (
+    <div aria-hidden>
+      {Array.from({ length: 60 }).map((_, i) => (
+        <span
+          key={i}
+          className="confeti"
+          style={{
+            left: `${(i * 37) % 100}%`,
+            backgroundColor: colores[i % colores.length],
+            animationDuration: `${2.6 + ((i * 13) % 20) / 10}s`,
+            animationDelay: `${((i * 7) % 15) / 10}s`,
+            rotate: `${(i * 47) % 360}deg`,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 function PantallaFinal({ respuestas, puntaje, onReiniciar }) {
   const { titulo, texto } = mensajeFinal(puntaje)
-  const aciertos = respuestas.filter((r) => r.acierto).length
+  const aciertos = respuestas.filter((r) => r?.acierto).length
   return (
     <Marco>
+      {puntaje >= 80 && <Confeti />}
       <MarcoEscena>
         {puntaje >= 60 ? <EscenaParaiso /> : <EscenaTenebrosa />}
         <div className="absolute inset-0 flex items-center justify-center">
@@ -148,7 +176,7 @@ function PantallaFinal({ respuestas, puntaje, onReiniciar }) {
       </MarcoEscena>
 
       <section className="entrar mx-auto w-full max-w-3xl rounded-3xl bg-papel p-5 text-stone-800 shadow-xl md:p-7">
-        <h2 className="font-titulo text-2xl font-bold text-emerald-800 md:text-3xl">{titulo}</h2>
+        <h2 className={`font-titulo text-2xl font-bold md:text-3xl ${puntaje >= 60 ? 'text-emerald-800' : 'text-purple-900'}`}>{titulo}</h2>
         <p className="mt-1 leading-relaxed">{texto}</p>
         <p className="mt-2 text-sm font-semibold text-stone-600">
           Acertaste {aciertos} de {PREGUNTAS.length} bifurcaciones.
@@ -164,7 +192,7 @@ function PantallaFinal({ respuestas, puntaje, onReiniciar }) {
               >
                 <span className="font-titulo font-bold text-stone-500">{i + 1}.</span>
                 <span className="flex-1">
-                  <span className="font-semibold">{p.situacion.split('. ')[0]}.</span>
+                  <span className="font-semibold">{p.situacion.split('¿')[0].trim()}</span>
                   {!r?.acierto && <span className="mt-1 block text-stone-600">Respuesta correcta: {p.correcta}</span>}
                 </span>
                 <span className={`whitespace-nowrap font-titulo font-semibold ${r?.acierto ? 'text-emerald-700' : 'text-rose-700'}`}>
@@ -199,6 +227,7 @@ function Juego({ onTerminar }) {
   const [posicion, setPosicion] = useState('abajo')
   const [eleccion, setEleccion] = useState(null)
   const vigente = useRef(0)
+  const bloqueado = useRef(true) // evita dobles elecciones o saltarse preguntas con teclas repetidas
   const botonSeguir = useRef(null)
 
   const pregunta = PREGUNTAS[indice]
@@ -214,6 +243,7 @@ function Juego({ onTerminar }) {
   // Llegada de la canoa a cada bifurcación
   useEffect(() => {
     const id = ++vigente.current
+    bloqueado.current = true
     setFase('llegando')
     setPosicion('abajo')
     setEleccion(null)
@@ -223,13 +253,15 @@ function Juego({ onTerminar }) {
       setPosicion('espera')
       await esperar(850)
       if (id !== vigente.current) return
+      bloqueado.current = false
       setFase('eligiendo')
     })()
   }, [indice])
 
   const elegir = useCallback(
     async (lado) => {
-      if (fase !== 'eligiendo') return
+      if (fase !== 'eligiendo' || bloqueado.current) return
+      bloqueado.current = true
       const id = vigente.current
       const acierto = lado === ladoCorrecto
       setEleccion(lado)
@@ -246,14 +278,22 @@ function Juego({ onTerminar }) {
         return nuevo
       })
       setFase('resultado')
+      bloqueado.current = false
+      // En celulares los letreros quedan debajo: sube para mostrar la retroalimentación.
+      if (window.scrollY > 0) window.scrollTo({ top: 0, behavior: 'smooth' })
     },
     [fase, ladoCorrecto, indice],
   )
 
   const seguir = useCallback(() => {
-    if (fase !== 'resultado') return
-    if (indice === PREGUNTAS.length - 1) onTerminar(respuestas)
-    else setIndice((i) => i + 1)
+    if (fase !== 'resultado' || bloqueado.current) return
+    bloqueado.current = true
+    if (indice === PREGUNTAS.length - 1) {
+      onTerminar(respuestas)
+      return
+    }
+    setFase('llegando')
+    setIndice((i) => i + 1)
   }, [fase, indice, onTerminar, respuestas])
 
   // Teclado: flechas para elegir, Enter o espacio para continuar
@@ -275,6 +315,7 @@ function Juego({ onTerminar }) {
   }, [fase])
 
   const mostrarLetreros = fase === 'eligiendo' || fase === 'navegando'
+  const viajando = posicion === 'izquierda' || posicion === 'derecha'
   const estadoLetrero = (lado) => (!eleccion ? 'normal' : eleccion === lado ? 'elegido' : 'descartado')
 
   const letreros = (
@@ -312,6 +353,7 @@ function Juego({ onTerminar }) {
       ) : (
         <section
           key={`r-${indice}`}
+          role="status"
           className={`entrar rounded-2xl px-4 py-3 shadow-lg md:px-6 md:py-4 ${
             respuestaActual?.acierto ? 'bg-emerald-50 text-emerald-950' : 'bg-purple-50 text-purple-950'
           }`}
@@ -374,7 +416,13 @@ function Juego({ onTerminar }) {
 
         {/* Letreros sobre la escena en pantallas medianas y grandes */}
         {mostrarLetreros && (
-          <div className="absolute inset-x-[2.5%] top-[4%] hidden grid-cols-2 gap-[24%] md:grid">{letreros}</div>
+          <div
+            className={`absolute inset-x-[2.5%] top-[4%] hidden grid-cols-2 gap-[24%] transition duration-500 md:grid ${
+              viajando ? 'pointer-events-none -translate-y-6 opacity-0' : ''
+            }`}
+          >
+            {letreros}
+          </div>
         )}
       </MarcoEscena>
 
@@ -404,6 +452,7 @@ export default function App() {
           setRespuestas([])
           setPartida((n) => n + 1)
           setPantalla('juego')
+          window.scrollTo({ top: 0 })
         }}
       />
     )
