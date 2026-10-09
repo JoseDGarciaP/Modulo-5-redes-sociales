@@ -10,7 +10,7 @@ export const TEMAS = {
   3: 'Recuperando la presencia',
 }
 
-export const PREGUNTAS = [
+const LISTA = [
   {
     id: 1,
     tema: 1,
@@ -135,5 +135,9 @@ export const PREGUNTAS = [
     retro: 'El consumo consciente consiste en pasar del uso automático al uso con intención.',
   },
 ]
+
+// Se congelan para que nadie pueda cambiar respuestas o puntos mientras juega.
+export const PREGUNTAS = Object.freeze(LISTA.map((p) => Object.freeze(p)))
+Object.freeze(TEMAS)
 
 export const PUNTAJE_TOTAL = PREGUNTAS.reduce((suma, p) => suma + p.puntos, 0) // 100
