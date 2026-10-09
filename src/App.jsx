@@ -98,6 +98,10 @@ function PantallaInicio({ onEmpezar }) {
 
       <section className="entrar mx-auto w-full max-w-3xl rounded-3xl bg-papel p-5 text-stone-800 shadow-xl md:p-7">
         <p className="text-base leading-relaxed md:text-lg">
+          <strong>Capi</strong> es una capibara con sombrero vueltiao que desea llegar a su destino atravesando las
+          diversas bifurcaciones del río.
+        </p>
+        <p className="mt-3 text-base leading-relaxed md:text-lg">
           Acompaña a <strong>Capi</strong> río abajo. En cada bifurcación verás una situación y dos letreros: uno lleva a
           <strong className="text-emerald-700"> aguas tranquilas</strong> y el otro a
           <strong className="text-purple-800"> aguas tenebrosas</strong>. La niebla no deja ver cuál es cuál, así que lee
